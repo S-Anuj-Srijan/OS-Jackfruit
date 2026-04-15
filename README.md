@@ -10,68 +10,68 @@ A lightweight Linux container runtime in C with a long-running supervisor and a 
 
 ## 2. Build, Load, and Run Instructions
 
-### A. Environment Prerequisites
-This project must be compiled and tested on an **Ubuntu 22.04 or 24.04** VM with **Secure Boot OFF**. WSL is not supported.
+*Note: Since Windows (and WSL) is not natively supported for loading kernel modules, you must copy this project folder (`OS-Jackfruit`) over to an **Ubuntu 22.04 or 24.04 VM** (with Secure Boot OFF) to compile and test.*
 
-Install essential kernel headers and build tools:
+### A. Install Prerequisites
+Run this inside your Linux VM to get the required kernel headers and build tools:
 ```bash
 sudo apt update
 sudo apt install -y build-essential linux-headers-$(uname -r)
 ```
 
-### B. Building The Project
-Navigate to the central project environment:
+### B. Build the Project
+Navigate into the `boilerplate` directory and compile the C files:
 ```bash
 cd boilerplate
 make
 ```
 
-### C. Kernel Space Monitor
-Deploy the monitoring Kernel Module (`monitor.ko`) via `insmod`:
+### C. Load the Kernel Monitor
+Insert the compiled kernel module and verify it's running:
 ```bash
 sudo insmod monitor.ko
-# Verify tracking block interface created
 ls -l /dev/container_monitor
 ```
 
-### D. Preparing The System Run Context
-Download and define the standard Alpine Base filesystem configuration:
+### D. Prepare the Container Environments (Rootfs)
+Download and set up the minimal Alpine Linux base:
 ```bash
 mkdir rootfs-base
 wget https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.3-x86_64.tar.gz
 tar -xzf alpine-minirootfs-3.20.3-x86_64.tar.gz -C rootfs-base
 
-# Prepare two test container root filesystems from the base template
+# Make two isolated instances for testing
 cp -a ./rootfs-base ./rootfs-alpha
 cp -a ./rootfs-base ./rootfs-beta
 ```
 
-### E. Execution Lifecycle 
-**Terminal 1 (Start the Long-Running Supervisor background logic):**
+### E. Start the Supervisor
+**In Terminal 1:** Start the background daemon that tracks everything. Keep this terminal open.
 ```bash
 sudo ./engine supervisor ./rootfs-base
 ```
 
-**Terminal 2 (Deploy and Control Test Environments):**
+### F. Deploy and Interact with Containers
+**In Terminal 2 (same `boilerplate` directory):** You can now manage your containers:
 ```bash
-# Start containers referencing respective filesystems configuring specific soft and hard memory bounds
+# Start test containers with memory limits
 sudo ./engine start alpha ./rootfs-alpha /bin/sh --soft-mib 48 --hard-mib 80
 sudo ./engine start beta ./rootfs-beta /bin/sh --soft-mib 64 --hard-mib 96
 
-# Visualize background system tracking:
+# View running containers status
 sudo ./engine ps
 
-# Print asynchronous log pipes:
+# View the isolated log files
 sudo ./engine logs alpha
 
-# Clean environments via clean signal stop payloads:
+# Cleanly stop them
 sudo ./engine stop alpha
 sudo ./engine stop beta
 ```
 
-### F. Teardown
+### G. Clean up
+When you are completely finished, unload the kernel module:
 ```bash
-# Invalidate local processes and unload kernel footprint
 sudo rmmod monitor
 make clean
 ```
